@@ -34,6 +34,9 @@ $ npm install
 
 ## Running the app
 
+--- In the root of the project, build and run the Docker containers:
+# docker-compose up -d
+
 ```bash
 # development
 $ npm run start
@@ -46,6 +49,50 @@ $ npm run start:prod
 ```
 
 ## Test
+
+### Tests: this is simple test using curl command and the output
+
+```bash
+# add 1 user (NO ERROR, NO REVERT)
+curl -X POST http://localhost:3000/user/addMultiple \
+-H 'Content-Type: application/json' \
+-d '{"type":"my_login","cmd_chain":[{"type":"sql_safe","cmd":"INSERT INTO \"Users\" VALUES (1, '\''tom'\'', '\''France'\'', NULL);"}]}'
+
+return_object = {
+	status: "ok", # status 200
+	dbState: ["(1, 'tom', 'France', NULL)"]
+}
+
+# add same user (RETURN ERROR CODE, REVERT CHANGE)
+curl -X POST http://localhost:3000/user/addMultiple \
+-H 'Content-Type: application/json' \
+-d '{"type":"my_login","cmd_chain":[{"type":"sql_safe","cmd":"INSERT INTO \"Users\" VALUES (2, '\''frog'\'', '\''France'\'', NULL);"},{"type":"sql_safe","cmd":"INSERT INTO \"Users\" VALUES (1, '\''sammy'\'', '\''France'\'', NULL);"}]}'
+
+return_object = {
+	status: "error", # status 400
+	dbState: ["(1, 'tom', 'France', NULL)"]
+}
+
+# add 2 users synchronously (NO ERROR, NO REVERT)
+curl -X POST http://localhost:3000/user/addMultiple \
+-H 'Content-Type: application/json' \
+-d '{"type":"my_login","cmd_chain":[{"type":"sql_safe","cmd":"INSERT INTO \"Users\" VALUES (2, '\''frog'\'', '\''France'\'', NULL);"},{"type":"sql_safe","cmd":"INSERT INTO \"Users\" VALUES (3, '\''sam'\'', '\''England'\'', 1);"}]}'
+
+return_object = {
+	status: "ok", # status 200
+	dbState: ["(1, 'tom', 'France', NULL)", "(2, 'frog', 'France', NULL)", "(3, 'sam', 'England', 1)"]
+}
+
+# Invalid Foreign Key error thrown by DB (RETURN ERROR CODE, REVERT CHANGE)
+curl -X POST http://localhost:3000/user/addMultiple \
+-H 'Content-Type: application/json' \
+-d '{"type":"my_login","cmd_chain":[{"type":"sql_safe","cmd":"INSERT INTO \"Users\" (Uid, Username, City, Friend) VALUES (4, '\''croak'\'', '\''Malaysia'\'', NULL);"},{"type":"sql_safe","cmd":"INSERT INTO \"Users\" (Uid, Username, City, Friend) VALUES (5, '\''ding'\'', '\''Finland'\'', 100);"}]}'
+
+return_object = {
+	status: "error", # status 400
+	dbState: ["(1, 'tom', 'France', NULL)", "(2, 'frog', 'France', NULL)", "(3, 'sam', 'England', 1)"]
+}
+```
 
 ```bash
 # unit tests
